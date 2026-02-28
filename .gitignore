@@ -205,3 +205,43 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# =========================
+# Custom FYP Rules: AuthentiScan
+# =========================
+
+# --- 1. Machine Learning & YOLOv8 ---
+# Ignore massive datasets and model weight files
+datasets/
+images/
+labels/
+*.pt
+*.onnx
+*.weights
+# Ignore Ultralytics training output folders (these get huge quickly)
+runs/
+yolov8n.pt
+
+# --- 2. Flutter & Dart ---
+# Standard Flutter ignore rules
+.dart_tool/
+build/
+.pub-cache/
+.pub/
+/authentiscan_app/build/
+/authentiscan_app/.dart_tool/
+*.jks
+*.keystore
+
+# --- 3. Python Flask Backend ---
+# Environment variables (NEVER commit secret keys or DB passwords)
+.env
+.flaskenv
+instance/
+
+# --- 4. OS & IDE Files ---
+# VS Code and OS specific junk files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
