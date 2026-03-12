@@ -49,6 +49,7 @@ class _MainScreenState extends State<MainScreen> {
   List<dynamic> _detections = [];
   double _imageWidth = 0;
   double _imageHeight = 0;
+  bool _isFlashOn = false;
 
   @override
   void initState() {
@@ -59,7 +60,6 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _initializeCamera() async {
     if (cameras.isEmpty) return;
 
-    // Initialize the first camera (usually the back camera)
     _cameraController = CameraController(
       cameras[0],
       ResolutionPreset.high,
@@ -67,9 +67,27 @@ class _MainScreenState extends State<MainScreen> {
     );
 
     await _cameraController!.initialize();
+
+    // Force the flash to be OFF by default when the app opens
+    await _cameraController!.setFlashMode(FlashMode.off);
+
     if (mounted) {
       setState(() {});
     }
+  }
+
+  // --- FLASH TOGGLE FUNCTION ---
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    setState(() {
+      _isFlashOn = !_isFlashOn;
+    });
+
+    // Switch between 'always' on and 'off'
+    await _cameraController!.setFlashMode(
+      _isFlashOn ? FlashMode.always : FlashMode.off,
+    );
   }
 
   @override
@@ -112,7 +130,7 @@ class _MainScreenState extends State<MainScreen> {
 
     await _analyzeImage(imageFile);
   }
-  // POST to server api for image analyze from trained model
+  // -- POST TO SERVER API FOR TRAINING --
   Future<void> _analyzeImage(File imageFile) async {
     final uri = Uri.parse('http://192.168.0.17:5000/predict'); // Change to server host ip address
     var request = http.MultipartRequest('POST', uri);
@@ -207,8 +225,15 @@ class _MainScreenState extends State<MainScreen> {
                   child: const Icon(Icons.camera, color: Colors.white, size: 40),
                 ),
               ),
-              // Placeholder for layout balance
-              const SizedBox(width: 48),
+              // Flash Toggle button
+              IconButton(
+                onPressed: _toggleFlash,
+                icon: Icon(
+                  _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
             ],
           ),
         ),
