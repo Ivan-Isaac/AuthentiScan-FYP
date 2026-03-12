@@ -3,8 +3,17 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:camera/camera.dart';
 
-void main() {
+// We need a global list of available cameras
+List<CameraDescription> cameras = [];
+
+Future<void> main() async {
+  // Ensure Flutter is initialized before checking hardware
+  WidgetsFlutterBinding.ensureInitialized();
+  // Fetch the available cameras on the device
+  cameras = await availableCameras();
+
   runApp(const AuthentiScanApp());
 }
 
@@ -32,37 +41,80 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  File? _selectedImage;
+  CameraController? _cameraController;
   final ImagePicker _picker = ImagePicker();
 
+  File? _selectedImage;
   bool _isAnalyzing = false;
   List<dynamic> _detections = [];
   double _imageWidth = 0;
   double _imageHeight = 0;
 
-  Future<void> _takePhoto() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+  }
 
-    if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
+  Future<void> _initializeCamera() async {
+    if (cameras.isEmpty) return;
 
-      // Get the original image dimensions for accurate scaling
-      var decodedImage = await decodeImageFromList(imageFile.readAsBytesSync());
+    // Initialize the first camera (usually the back camera)
+    _cameraController = CameraController(
+      cameras[0],
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
 
-      setState(() {
-        _selectedImage = imageFile;
-        _imageWidth = decodedImage.width.toDouble();
-        _imageHeight = decodedImage.height.toDouble();
-        _detections = []; // Clear previous boxes
-        _isAnalyzing = true;
-      });
-
-      await _analyzeImage(imageFile);
+    await _cameraController!.initialize();
+    if (mounted) {
+      setState(() {});
     }
   }
 
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  // --- CAPTURE FROM LIVE FEED ---
+  Future<void> _captureFromCamera() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    try {
+      final XFile picture = await _cameraController!.takePicture();
+      _processSelectedFile(File(picture.path));
+    } catch (e) {
+      debugPrint("Error capturing image: $e");
+    }
+  }
+
+  // --- CAPTURE FROM GALLERY ---
+  Future<void> _pickFromGallery() async {
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      _processSelectedFile(File(pickedFile.path));
+    }
+  }
+
+  // --- PREPARE IMAGE AND SEND TO FLASK ---
+  Future<void> _processSelectedFile(File imageFile) async {
+    var decodedImage = await decodeImageFromList(imageFile.readAsBytesSync());
+
+    setState(() {
+      _selectedImage = imageFile;
+      _imageWidth = decodedImage.width.toDouble();
+      _imageHeight = decodedImage.height.toDouble();
+      _detections = [];
+      _isAnalyzing = true;
+    });
+
+    await _analyzeImage(imageFile);
+  }
+  // POST to server api for image analyze from trained model
   Future<void> _analyzeImage(File imageFile) async {
-    final uri = Uri.parse('http://192.168.0.17:5000/predict');
+    final uri = Uri.parse('http://192.168.0.17:5000/predict'); // Change to server host ip address
     var request = http.MultipartRequest('POST', uri);
     request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
@@ -72,14 +124,11 @@ class _MainScreenState extends State<MainScreen> {
 
       if (response.statusCode == 200) {
         var jsonResponse = json.decode(response.body);
-
         setState(() {
-          // Save the detection data to our state so the CustomPainter can use it
           _detections = jsonResponse['data'];
         });
-
       } else {
-        debugPrint("Failed to get prediction. Status code: ${response.statusCode}");
+        debugPrint("Failed to get prediction.");
       }
     } catch (e) {
       debugPrint("Error connecting to server: $e");
@@ -90,6 +139,14 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  // --- RESET TO LIVE FEED ---
+  void _resetScanner() {
+    setState(() {
+      _selectedImage = null;
+      _detections = [];
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,24 +155,75 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
       ),
-      body: Center(
-        // Added SingleChildScrollView so the new banner doesn't cause screen overflow
+      backgroundColor: Colors.black, // Better background for a camera app
+      body: _selectedImage == null
+          ? _buildCameraFeed()
+          : _buildResultsScreen(),
+    );
+  }
+
+  // UI STATE 1: THE LIVE CAMERA FEED
+  Widget _buildCameraFeed() {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                )
+            ),
+            child: CameraPreview(_cameraController!),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Gallery Button
+              IconButton(
+                onPressed: _pickFromGallery,
+                icon: const Icon(Icons.photo_library, color: Colors.white, size: 32),
+              ),
+              // Main Capture Button
+              GestureDetector(
+                onTap: _captureFromCamera,
+                child: Container(
+                  height: 80,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
+                    color: Colors.white30,
+                  ),
+                  child: const Icon(Icons.camera, color: Colors.white, size: 40),
+                ),
+              ),
+              // Placeholder for layout balance
+              const SizedBox(width: 48),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // UI STATE 2: THE ANALYSIS RESULTS
+  Widget _buildResultsScreen() {
+    return Container(
+      color: Colors.white,
+      child: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: _selectedImage == null
-              ? const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.camera_outlined, size: 100, color: Colors.grey),
-              SizedBox(height: 20),
-              Text(
-                'No item scanned yet.\nTap the button below to verify an accessory.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-              ),
-            ],
-          )
-              : Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Stack(
@@ -133,15 +241,10 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   if (_isAnalyzing)
-                    const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 6.0,
-                    ),
+                    const CircularProgressIndicator(color: Colors.white, strokeWidth: 6.0),
                 ],
               ),
-              const SizedBox(height: 24), // Spacing between image and banner
-
-              // --- THE NEW COUNTERFEIT UI LOGIC ---
+              const SizedBox(height: 24),
               if (!_isAnalyzing)
                 Container(
                   width: double.infinity,
@@ -176,22 +279,25 @@ class _MainScreenState extends State<MainScreen> {
                     ],
                   ),
                 ),
+              const SizedBox(height: 24),
+              // Button to clear results and go back to camera
+              ElevatedButton.icon(
+                onPressed: _resetScanner,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Scan Another Item"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              )
             ],
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _takePhoto,
-        icon: const Icon(Icons.camera_alt),
-        label: const Text('Scan Item'),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
 
 // --- THE CUSTOM PAINTER CLASS ---
-// This acts as a transparent sheet of glass over your image to draw the boxes.
 class BoundingBoxPainter extends CustomPainter {
   final List<dynamic> detections;
 
@@ -199,13 +305,11 @@ class BoundingBoxPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Set up the "pen" to draw the rectangle
     final paint = Paint()
       ..color = Colors.greenAccent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8.0; // Make the box thick enough to see easily
+      ..strokeWidth = 8.0;
 
-    // Set up the text style for the label
     final textStyle = const TextStyle(
       color: Colors.white,
       backgroundColor: Colors.green,
@@ -214,18 +318,15 @@ class BoundingBoxPainter extends CustomPainter {
     );
 
     for (var detection in detections) {
-      // Extract the coordinates [x_min, y_min, x_max, y_max]
       List<dynamic> box = detection['bounding_box'];
       double xMin = box[0].toDouble();
       double yMin = box[1].toDouble();
       double xMax = box[2].toDouble();
       double yMax = box[3].toDouble();
 
-      // Draw the rectangle
       var rect = Rect.fromLTRB(xMin, yMin, xMax, yMax);
       canvas.drawRect(rect, paint);
 
-      // Draw the label and confidence score above the box
       double conf = detection['confidence'] * 100;
       String labelText = "${detection['label']} (${conf.toStringAsFixed(1)}%)";
 
@@ -236,12 +337,12 @@ class BoundingBoxPainter extends CustomPainter {
       );
 
       textPainter.layout();
-      textPainter.paint(canvas, Offset(xMin, yMin - 45)); // Position text just above the box
+      textPainter.paint(canvas, Offset(xMin, yMin - 45));
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true; // Always repaint when new data arrives
+    return true;
   }
 }

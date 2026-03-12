@@ -37,6 +37,7 @@ dependencies:
   # FYP Custom Packages
   image_picker: ^1.0.7  # Opens the phone's camera to snap a picture
   http: ^1.2.0          # Handles the POST request to your Flask API
+  camera: ^0.10.5       # Live camera feed
 
 dev_dependencies:
   flutter_test:
