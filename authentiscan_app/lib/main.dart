@@ -243,6 +243,12 @@ class _MainScreenState extends State<MainScreen> {
 
   // UI STATE 2: THE ANALYSIS RESULTS
   Widget _buildResultsScreen() {
+
+    // --- THE NEW LOGIC CHECK ---
+    // It's a counterfeit IF it found nothing OR if any detection label contains the word "fake"
+    bool isCounterfeit = _detections.isEmpty ||
+        _detections.any((d) => d['label'].toString().toLowerCase().contains('fake'));
+
     return Container(
       color: Colors.white,
       child: Center(
@@ -275,28 +281,32 @@ class _MainScreenState extends State<MainScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16.0),
                   decoration: BoxDecoration(
-                    color: _detections.isEmpty ? Colors.red.shade50 : Colors.green.shade50,
+                    // FIX 1 & 2: Swapped to isCounterfeit
+                    color: isCounterfeit ? Colors.red.shade50 : Colors.green.shade50,
                     borderRadius: BorderRadius.circular(12.0),
                     border: Border.all(
-                      color: _detections.isEmpty ? Colors.red : Colors.green,
+                      color: isCounterfeit ? Colors.red : Colors.green,
                       width: 2.0,
                     ),
                   ),
                   child: Column(
                     children: [
                       Icon(
-                        _detections.isEmpty ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                        color: _detections.isEmpty ? Colors.red : Colors.green,
+                        // FIX 3: Swapped to isCounterfeit
+                        isCounterfeit ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                        color: isCounterfeit ? Colors.red : Colors.green,
                         size: 48,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _detections.isEmpty
-                            ? "WARNING: COUNTERFEIT DETECTED\n(Missing Authenticity Features)"
+                        // FIX 4: Swapped to isCounterfeit
+                        isCounterfeit
+                            ? "WARNING: COUNTERFEIT DETECTED\n(Fake Features Identified)"
                             : "VERIFIED GENUINE",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: _detections.isEmpty ? Colors.red.shade900 : Colors.green.shade900,
+                          // FIX 5: Swapped to isCounterfeit
+                          color: isCounterfeit ? Colors.red.shade900 : Colors.green.shade900,
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
                         ),

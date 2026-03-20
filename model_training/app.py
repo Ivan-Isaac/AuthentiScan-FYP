@@ -5,8 +5,8 @@ import os
 
 app = Flask(__name__)
 
-# Load your MVP model (keeping the confidence low so it triggers for now)
-model = YOLO("pn920_mvp_v1.pt")
+# Load the MVP model
+model = YOLO("casio_v1.pt")
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -23,7 +23,7 @@ def predict():
     filepath = os.path.join("temp_uploads", filename)
     file.save(filepath)
 
-    # 3. Run YOLO inference (Conf set to 0.02 just for this MVP test)
+    # 3. Run YOLO inference (Conf set to 0.02 for now)
     results = model(filepath, conf=0.02)
     
     # 4. Extract the data to send back to Flutter
@@ -34,8 +34,12 @@ def predict():
             coords = box.xyxy[0].tolist() 
             conf = float(box.conf[0])
             
+            # --- THE MAGIC FIX: Get the actual label from YOLO ---
+            class_id = int(box.cls[0])
+            class_name = model.names[class_id] 
+            
             detections.append({
-                "label": "genuine_logo",
+                "label": class_name, # <-- No longer hardcoded!
                 "confidence": round(conf, 4),
                 "bounding_box": coords
             })
