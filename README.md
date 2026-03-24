@@ -55,6 +55,6 @@ Upcoming Milestones:
 
 2. YOLOv8 model training and hyperparameter tuning.
 
-3. System integration bridging the Flutter client and Flask backend.
+3. System integration bridging the Flutter client and Flask backend. (Done)
 
-4. Performance evaluation and user acceptance testing (UAT).
+4. Performance evaluation and user acceptance testing (UAT). (In Progress)
