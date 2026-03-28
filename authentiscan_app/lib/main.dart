@@ -51,6 +51,47 @@ class _MainScreenState extends State<MainScreen> {
   double _imageHeight = 0;
   bool _isFlashOn = false;
 
+  // Default to localhost just in case, but we will overwrite this via the UI
+  String _serverBaseUrl = "http://192.168.0.17:5000";
+  final TextEditingController _urlController = TextEditingController();
+
+  // --- SERVER SETTINGS DIALOG ---
+  Future<void> _showSettingsDialog() async {
+    _urlController.text = _serverBaseUrl; // Pre-fill with current URL
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Server Configuration'),
+          content: TextField(
+            controller: _urlController,
+            decoration: const InputDecoration(
+              labelText: "Base URL (e.g., https://192.168.1.1)",
+            ),
+            keyboardType: TextInputType.url,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton(
+              child: const Text('Save'),
+              onPressed: () {
+                setState(() {
+                  // Strip any trailing slashes just to be safe
+                  _serverBaseUrl = _urlController.text.trim().replaceAll(RegExp(r'/$'), '');
+                });
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -132,7 +173,8 @@ class _MainScreenState extends State<MainScreen> {
   }
   // -- POST TO SERVER API FOR TRAINING --
   Future<void> _analyzeImage(File imageFile) async {
-    final uri = Uri.parse('http://192.168.0.17:5000/predict'); // Change to server host ip address
+    // Dynamically append /predict to whatever URL you typed in
+    final uri = Uri.parse('$_serverBaseUrl/predict');
     var request = http.MultipartRequest('POST', uri);
     request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
@@ -172,6 +214,12 @@ class _MainScreenState extends State<MainScreen> {
         title: const Text('AuthentiScan', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _showSettingsDialog, // Opens the pop-up
+          )
+        ],
       ),
       backgroundColor: Colors.black, // Better background for a camera app
       body: _selectedImage == null
@@ -244,10 +292,37 @@ class _MainScreenState extends State<MainScreen> {
   // UI STATE 2: THE ANALYSIS RESULTS
   Widget _buildResultsScreen() {
 
-    // --- THE NEW LOGIC CHECK ---
-    // It's a counterfeit IF it found nothing OR if any detection label contains the word "fake"
-    bool isCounterfeit = _detections.isEmpty ||
-        _detections.any((d) => d['label'].toString().toLowerCase().contains('fake'));
+    // --- THE NEW 3-STATE LOGIC CHECK ---
+    bool hasFake = _detections.any((d) => d['label'].toString().toLowerCase().contains('fake'));
+    bool hasReal = _detections.any((d) =>
+    d['label'].toString().toLowerCase().contains('real') ||
+        d['label'].toString().toLowerCase().contains('genuine'));
+
+    // Set UI variables based on what the AI found
+    Color boxColor;
+    Color iconColor;
+    IconData statusIcon;
+    String statusText;
+
+    if (hasFake) {
+      // STATE 1: Found a known fake feature (Like the Casio QC sticker)
+      boxColor = Colors.red.shade50;
+      iconColor = Colors.red;
+      statusIcon = Icons.warning_amber_rounded;
+      statusText = "WARNING: COUNTERFEIT DETECTED\n(Fake Features Identified)";
+    } else if (hasReal) {
+      // STATE 2: Found known real features (Like the Apple 20W text)
+      boxColor = Colors.green.shade50;
+      iconColor = Colors.green;
+      statusIcon = Icons.check_circle_outline;
+      statusText = "VERIFIED GENUINE\n(Authentic Markings Found)";
+    } else {
+      // STATE 3: Found absolutely nothing
+      boxColor = Colors.orange.shade50;
+      iconColor = Colors.orange.shade800;
+      statusIcon = Icons.help_outline;
+      statusText = "NO MARKINGS DETECTED\nPlease scan a supported item, or the item may be missing authentic features.";
+    }
 
     return Container(
       color: Colors.white,
@@ -277,45 +352,32 @@ class _MainScreenState extends State<MainScreen> {
               ),
               const SizedBox(height: 24),
               if (!_isAnalyzing)
+              // --- THE UPDATED DYNAMIC CONTAINER ---
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16.0),
                   decoration: BoxDecoration(
-                    // FIX 1 & 2: Swapped to isCounterfeit
-                    color: isCounterfeit ? Colors.red.shade50 : Colors.green.shade50,
+                    color: boxColor,
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: isCounterfeit ? Colors.red : Colors.green,
-                      width: 2.0,
-                    ),
+                    border: Border.all(color: iconColor, width: 2.0),
                   ),
                   child: Column(
                     children: [
-                      Icon(
-                        // FIX 3: Swapped to isCounterfeit
-                        isCounterfeit ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                        color: isCounterfeit ? Colors.red : Colors.green,
-                        size: 48,
-                      ),
+                      Icon(statusIcon, color: iconColor, size: 48),
                       const SizedBox(height: 8),
                       Text(
-                        // FIX 4: Swapped to isCounterfeit
-                        isCounterfeit
-                            ? "WARNING: COUNTERFEIT DETECTED\n(Fake Features Identified)"
-                            : "VERIFIED GENUINE",
+                        statusText,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          // FIX 5: Swapped to isCounterfeit
-                          color: isCounterfeit ? Colors.red.shade900 : Colors.green.shade900,
+                          color: iconColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
                 ),
               const SizedBox(height: 24),
-              // Button to clear results and go back to camera
               ElevatedButton.icon(
                 onPressed: _resetScanner,
                 icon: const Icon(Icons.refresh),
