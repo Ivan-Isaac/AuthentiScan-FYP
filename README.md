@@ -26,9 +26,11 @@ This project utilizes a **Hybrid Client-Server Architecture** developed through 
   * Handles image capture, secure transmission, and result visualization (bounding boxes and confidence scores).
 * **Backend (REST API):** `Python` / `Flask` 
   * Manages the intensive computational load of running AI inference and logs scan history.
+* **Annotation service:** `Roboflow` 
+  * An online image annotation service to create bounding box detection based on class for model training.
 * **AI Inference Engine:** `YOLOv8` (Ultralytics) 
   * A state-of-the-art, one-stage object detection model optimized for speed and efficiency.
-* **Model Training Environment:** `Google Colab` (NVIDIA GPUs)
+* **Model Training Environment:** `Google Colab` (NVIDIA T4 GPUs)
 
 ---
 
@@ -51,9 +53,9 @@ This repository is currently transitioning from the System Design phase (FYP 1) 
 
 Upcoming Milestones:
 
-1. Custom dataset construction and annotation for mobile accessories.
+1. Custom dataset construction and annotation for mobile accessories. (Base done, currently collecting data)
 
-2. YOLOv8 model training and hyperparameter tuning.
+2. YOLOv8 model training and hyperparameter tuning. (In progress)
 
 3. System integration bridging the Flutter client and Flask backend. (Done)
 
