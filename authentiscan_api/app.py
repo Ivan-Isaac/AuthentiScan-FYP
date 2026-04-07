@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # Load the MVP model
-model = YOLO("apple_charger_v1.pt")
+model = YOLO("ver2_7-4-2026.pt") 
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -23,7 +23,7 @@ def predict():
     filepath = os.path.join("temp_uploads", filename)
     file.save(filepath)
 
-    # 3. Run YOLO inference (Conf set to 0.02 for now)
+    # 3. Run YOLO inference (Confidence at 60%)
     results = model(filepath, conf=0.60)
     
     # 4. Extract the data to send back to Flutter
