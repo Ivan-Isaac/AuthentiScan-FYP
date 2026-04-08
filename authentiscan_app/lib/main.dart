@@ -52,6 +52,8 @@ class _MainScreenState extends State<MainScreen> {
   double _imageHeight = 0;
   bool _isFlashOn = false;
 
+  String? _errorMessage;
+
   // Default to localhost just in case, but we will overwrite this via the UI
   String _serverBaseUrl = "http://192.168.0.17:5000";
   final TextEditingController _urlController = TextEditingController();
@@ -167,6 +169,7 @@ class _MainScreenState extends State<MainScreen> {
       _imageWidth = decodedImage.width.toDouble();
       _imageHeight = decodedImage.height.toDouble();
       _detections = [];
+      _errorMessage = null; // Clear errors from previous session
       _isAnalyzing = true;
     });
 
@@ -174,13 +177,11 @@ class _MainScreenState extends State<MainScreen> {
   }
   // -- POST TO SERVER API FOR TRAINING --
   Future<void> _analyzeImage(File imageFile) async {
-    // Dynamically append /predict to whatever URL you typed in
     final uri = Uri.parse('$_serverBaseUrl/predict');
     var request = http.MultipartRequest('POST', uri);
     request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
     try {
-      // Add a 10-second timeout to the send() request
       var streamedResponse = await request.send().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -197,38 +198,24 @@ class _MainScreenState extends State<MainScreen> {
         });
       } else {
         debugPrint("Failed to get prediction. Status Code: ${response.statusCode}");
-        _showErrorSnackBar("Server Error: Got status code ${response.statusCode}");
+        setState(() {
+          _errorMessage = "SERVER ERROR\nGot status code ${response.statusCode}.";
+        });
       }
     } on TimeoutException catch (_) {
-      // This catches the specific 10-second timeout we created above
-      _showErrorSnackBar("Connection Timeout: Please check if the Flask server is running and your IP is correct.");
+      setState(() {
+        _errorMessage = "CONNECTION TIMEOUT\nPlease check if the Flask server is running and your IP is correct.";
+      });
     } catch (e) {
-      // This catches generic network crashes (like turning off Wi-Fi entirely)
       debugPrint("Error connecting to server: $e");
-      _showErrorSnackBar("Network Error: Could not reach the server.");
+      setState(() {
+        _errorMessage = "NETWORK ERROR\nCould not reach the server.";
+      });
     } finally {
       setState(() {
         _isAnalyzing = false;
       });
     }
-  }
-
-  // --- ERROR HELPER ---
-  void _showErrorSnackBar(String message) {
-    if (!mounted) return; // Safety check to ensure the widget is still on screen
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.red.shade800,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16.0),
-        duration: const Duration(seconds: 4),
-      ),
-    );
   }
 
   // --- RESET TO LIVE FEED ---
@@ -336,20 +323,27 @@ class _MainScreenState extends State<MainScreen> {
     IconData statusIcon;
     String statusText;
 
-    if (hasFake) {
-      // STATE 1: Found a known fake feature (Like the Casio QC sticker)
+    // Choose message based on State
+    if (_errorMessage != null) {
+      // STATE 4: Network connection error
+      boxColor = Colors.grey.shade200;
+      iconColor = Colors.red.shade800;
+      statusIcon = Icons.wifi_off_rounded;
+      statusText = _errorMessage!;
+    } else if (hasFake) {
+      // STATE 1: Found known fake features
       boxColor = Colors.red.shade50;
       iconColor = Colors.red;
       statusIcon = Icons.warning_amber_rounded;
       statusText = "WARNING: COUNTERFEIT DETECTED\n(Fake Features Identified)";
     } else if (hasReal) {
-      // STATE 2: Found known real features (Like the Apple 20W text)
+      // STATE 2: Found known real features
       boxColor = Colors.green.shade50;
       iconColor = Colors.green;
       statusIcon = Icons.check_circle_outline;
       statusText = "VERIFIED GENUINE\n(Authentic Markings Found)";
     } else {
-      // STATE 3: Found absolutely nothing
+      // STATE 3: Found nothing
       boxColor = Colors.orange.shade50;
       iconColor = Colors.orange.shade800;
       statusIcon = Icons.help_outline;
