@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async'; //TimeoutException
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -179,7 +180,14 @@ class _MainScreenState extends State<MainScreen> {
     request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
 
     try {
-      var streamedResponse = await request.send();
+      // Add a 10-second timeout to the send() request
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException("The connection to the AuthentiScan server timed out.");
+        },
+      );
+
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -188,15 +196,39 @@ class _MainScreenState extends State<MainScreen> {
           _detections = jsonResponse['data'];
         });
       } else {
-        debugPrint("Failed to get prediction.");
+        debugPrint("Failed to get prediction. Status Code: ${response.statusCode}");
+        _showErrorSnackBar("Server Error: Got status code ${response.statusCode}");
       }
+    } on TimeoutException catch (_) {
+      // This catches the specific 10-second timeout we created above
+      _showErrorSnackBar("Connection Timeout: Please check if the Flask server is running and your IP is correct.");
     } catch (e) {
+      // This catches generic network crashes (like turning off Wi-Fi entirely)
       debugPrint("Error connecting to server: $e");
+      _showErrorSnackBar("Network Error: Could not reach the server.");
     } finally {
       setState(() {
         _isAnalyzing = false;
       });
     }
+  }
+
+  // --- ERROR HELPER ---
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return; // Safety check to ensure the widget is still on screen
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.red.shade800,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16.0),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   // --- RESET TO LIVE FEED ---
