@@ -10,7 +10,7 @@
 ## 📌 About The Project
 The proliferation of counterfeit goods represents a significant economic challenge and public safety risk in Malaysia. Current enforcement methods rely heavily on manual visual inspection, which is time-consuming and subjective. 
 
-**AuthentiScan** is an AI-driven mobile application designed to assist enforcement officers in the real-time detection of counterfeit mobile accessories (specifically branded chargers and power banks). By employing computer vision, the system identifies macroscopic authentication features such as logo misalignments and text anomalies without the need for proprietary hardware.
+**AuthentiScan** is an AI-driven mobile application designed to assist enforcement officers in the real-time detection of counterfeit mobile accessories (specifically branded chargers). By employing computer vision, the system identifies macroscopic authentication features such as logo misalignments and text anomalies without the need for proprietary hardware.
 
 ### 🎯 Key Objectives
 * Develop a mobile application capable of real-time counterfeit object detection.
@@ -27,7 +27,7 @@ This project utilizes a **Hybrid Client-Server Architecture** developed through 
 * **Backend (REST API):** `Python` / `Flask` 
   * Manages the intensive computational load of running AI inference and logs scan history.
 * **Annotation service:** `Roboflow` 
-  * An online image annotation service to create bounding box detection based on class for model training.
+  * Roboflow annotation service to create bounding box detection based on class for model training.
 * **AI Inference Engine:** `YOLOv8` (Ultralytics) 
   * A state-of-the-art, one-stage object detection model optimized for speed and efficiency.
 * **Model Training Environment:** `Google Colab` (NVIDIA T4 GPUs)
@@ -47,9 +47,9 @@ This is a monorepo containing all components of the AuthentiScan system:
 ```
 ---
 
-## 🚀 Future Implementation (FYP 2)
+## 🚀 Status and Future Implementation (FYP 2)
 
-This repository is currently transitioning from the System Design phase (FYP 1) to the Implementation phase (FYP 2).
+This repository is currently on the Implementation phase (FYP 2). 
 
 Upcoming Milestones:
 
