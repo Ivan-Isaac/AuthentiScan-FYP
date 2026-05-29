@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # Load the MVP model
-model = YOLO("ver2_7-4-2026.pt") 
+model = YOLO("ver3_28-5-2026.pt") 
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -34,12 +34,12 @@ def predict():
             coords = box.xyxy[0].tolist() 
             conf = float(box.conf[0])
             
-            # --- THE MAGIC FIX: Get the actual label from YOLO ---
+            # -- Get the actual label from YOLO ---
             class_id = int(box.cls[0])
             class_name = model.names[class_id] 
             
             detections.append({
-                "label": class_name, # <-- No longer hardcoded!
+                "label": class_name, 
                 "confidence": round(conf, 4),
                 "bounding_box": coords
             })

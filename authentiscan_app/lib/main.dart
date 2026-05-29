@@ -54,7 +54,7 @@ class _MainScreenState extends State<MainScreen> {
 
   String? _errorMessage;
 
-  // Default to localhost just in case, but we will overwrite this via the UI
+  // Default to localhost, changeable in the server settings dialog
   String _serverBaseUrl = "http://192.168.0.17:5000";
   final TextEditingController _urlController = TextEditingController();
 
