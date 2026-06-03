@@ -127,12 +127,14 @@ class _MainScreenState extends State<MainScreen> {
 
     _cameraController = CameraController(
       cameras[0],
-      ResolutionPreset.high,
+      ResolutionPreset.max,
       enableAudio: false,
     );
 
     await _cameraController!.initialize();
-
+    
+    // Force auto focus
+    await _cameraController!.setFocusMode(FocusMode.auto);
     // Force the flash to be OFF by default when the app opens
     await _cameraController!.setFlashMode(FlashMode.off);
 
