@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:camera/camera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// We need a global list of available cameras
+// Get global list of available cameras
 List<CameraDescription> cameras = [];
 
 Future<void> main() async {
@@ -81,12 +82,22 @@ class _MainScreenState extends State<MainScreen> {
             ),
             ElevatedButton(
               child: const Text('Save'),
-              onPressed: () {
+              onPressed: () async {
+                String updatedUrl = _urlController.text.trim().replaceAll(RegExp(r'/$'), '');
+
+                // Save the URL to device storage
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('saved_server_url', updatedUrl);
+
                 setState(() {
                   // Strip any trailing slashes just to be safe
                   _serverBaseUrl = _urlController.text.trim().replaceAll(RegExp(r'/$'), '');
                 });
-                Navigator.of(context).pop();
+
+                // Check if context is mounted before popping (best practice for async dialogs)
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
           ],
@@ -99,6 +110,16 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _initializeCamera();
+    _loadServerUrl();
+  }
+
+  Future<void> _loadServerUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      // Look for the saved URL. If it doesn't exist (first time opening app),
+      // it defaults to the placeholder IP.
+      _serverBaseUrl = prefs.getString('saved_server_url') ?? "http://192.168.0.17:5000";
+    });
   }
 
   Future<void> _initializeCamera() async {
@@ -228,22 +249,39 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('AuthentiScan', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _showSettingsDialog, // Opens the pop-up
-          )
-        ],
+    return PopScope(
+      // canPop decides if the app is allowed to close.
+      // It can ONLY close if there is no image currently selected (meaning we are on the camera feed).
+      canPop: _selectedImage == null,
+
+      onPopInvoked: (bool didPop) {
+        // If didPop is true, it means the app successfully closed (we were on the camera feed).
+        // We don't need to do anything.
+        if (didPop) {
+          return;
+        }
+
+        // If didPop is false, the PopScope prevented the app from closing.
+        // This means we are on the results screen, so we trigger the reset function instead!
+        _resetScanner();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('AuthentiScan', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _showSettingsDialog, // Opens the pop-up
+            )
+          ],
+        ),
+        backgroundColor: Colors.black, // Better background for a camera app
+        body: _selectedImage == null
+            ? _buildCameraFeed()
+            : _buildResultsScreen(),
       ),
-      backgroundColor: Colors.black, // Better background for a camera app
-      body: _selectedImage == null
-          ? _buildCameraFeed()
-          : _buildResultsScreen(),
     );
   }
 
@@ -367,7 +405,7 @@ class _MainScreenState extends State<MainScreen> {
                       width: _imageWidth,
                       height: _imageHeight,
                       child: CustomPaint(
-                        foregroundPainter: BoundingBoxPainter(_detections),
+                        foregroundPainter: BoundingBoxPainter(_detections, MediaQuery.of(context).size.width),
                         child: Image.file(_selectedImage!, fit: BoxFit.fill),
                       ),
                     ),
@@ -423,20 +461,31 @@ class _MainScreenState extends State<MainScreen> {
 // --- THE CUSTOM PAINTER CLASS ---
 class BoundingBoxPainter extends CustomPainter {
   final List<dynamic> detections;
+  final double screenWidth; // Added screenWidth variable
 
-  BoundingBoxPainter(this.detections);
+  // Require screenWidth in the constructor
+  BoundingBoxPainter(this.detections, this.screenWidth);
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1. Calculate the exact scale factor Flutter is applying to fit the image on screen
+    double scaleFactor = screenWidth / size.width;
+
+    // 2. INVERSE SCALING: Divide your desired visual size by the scale factor.
+    // This guarantees the text is exactly 14 logical pixels on your physical phone screen.
+    final double dynamicStrokeWidth = 3.0 / scaleFactor;
+    final double dynamicFontSize = 14.0 / scaleFactor;
+    final double textPadding = 4.0 / scaleFactor;
+
     final paint = Paint()
       ..color = Colors.greenAccent
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8.0;
+      ..strokeWidth = dynamicStrokeWidth;
 
-    final textStyle = const TextStyle(
+    final textStyle = TextStyle(
       color: Colors.white,
       backgroundColor: Colors.green,
-      fontSize: 40.0,
+      fontSize: dynamicFontSize,
       fontWeight: FontWeight.bold,
     );
 
@@ -460,7 +509,8 @@ class BoundingBoxPainter extends CustomPainter {
       );
 
       textPainter.layout();
-      textPainter.paint(canvas, Offset(xMin, yMin - 45));
+
+      textPainter.paint(canvas, Offset(xMin, yMin - textPainter.height - textPadding));
     }
   }
 

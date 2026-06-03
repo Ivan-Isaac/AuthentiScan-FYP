@@ -38,6 +38,7 @@ dependencies:
   image_picker: ^1.0.7  # Opens the phone's camera to snap a picture
   http: ^1.2.0          # Handles the POST request to your Flask API
   camera: ^0.12.0+1       # Live camera feed
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
