@@ -69,7 +69,6 @@ This is a clean monorepo containing all individual microservices and engineering
  ┣ 📂 authentiscan_app      # Flutter cross-platform mobile codebase
  ┣ 📂 authentiscan_api      # Python Flask RESTful backend endpoint logic
  ┣ 📂 model_training        # Jupyter/Colab notebooks & hyperparameter weights
- ┣ 📂 docs                  # Architectural diagrams, system requirements, and slides
  ┗ 📜 README.md
 
 ```
