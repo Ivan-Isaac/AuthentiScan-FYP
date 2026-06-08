@@ -23,8 +23,8 @@ def predict():
     filepath = os.path.join("temp_uploads", filename)
     file.save(filepath)
 
-    # 3. Run YOLO inference (Confidence at 60%)
-    results = model(filepath, conf=0.60)
+    # 3. Run YOLO inference (Confidence at 70%)
+    results = model(filepath, conf=0.70)
     
     # 4. Extract the data to send back to Flutter
     detections = []

@@ -61,7 +61,7 @@ class _MainScreenState extends State<MainScreen> {
 
   // --- SERVER SETTINGS DIALOG ---
   Future<void> _showSettingsDialog() async {
-    _urlController.text = _serverBaseUrl; // Pre-fill with current URL
+    _urlController.text = _serverBaseUrl; // Pre-fill with set URL
 
     return showDialog<void>(
       context: context,
@@ -151,7 +151,7 @@ class _MainScreenState extends State<MainScreen> {
       _isFlashOn = !_isFlashOn;
     });
 
-    // Switch between 'always' on and 'off'
+    // Switch between 'always on' and 'off'
     await _cameraController!.setFlashMode(
       _isFlashOn ? FlashMode.always : FlashMode.off,
     );
@@ -253,18 +253,18 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       // canPop decides if the app is allowed to close.
-      // It can ONLY close if there is no image currently selected (meaning we are on the camera feed).
+      // It can ONLY close if there is no image currently selected (are on the camera feed).
       canPop: _selectedImage == null,
 
       onPopInvoked: (bool didPop) {
-        // If didPop is true, it means the app successfully closed (we were on the camera feed).
-        // We don't need to do anything.
+        // If didPop is true, it means the app successfully closed (were on the camera feed).
+        // Nothing needs to be done here.
         if (didPop) {
           return;
         }
 
         // If didPop is false, the PopScope prevented the app from closing.
-        // This means we are on the results screen, so we trigger the reset function instead!
+        // This means we are on the results screen, so the reset function is triggered instead.
         _resetScanner();
       },
       child: Scaffold(
@@ -275,11 +275,11 @@ class _MainScreenState extends State<MainScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings),
-              onPressed: _showSettingsDialog, // Opens the pop-up
+              onPressed: _showSettingsDialog, // Opens setting pop-up
             )
           ],
         ),
-        backgroundColor: Colors.black, // Better background for a camera app
+        backgroundColor: Colors.black,
         body: _selectedImage == null
             ? _buildCameraFeed()
             : _buildResultsScreen(),
@@ -287,7 +287,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // UI STATE 1: THE LIVE CAMERA FEED
+  // UI STATE 1: LIVE CAMERA FEED
   Widget _buildCameraFeed() {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return const Center(child: CircularProgressIndicator());
@@ -348,7 +348,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // UI STATE 2: THE ANALYSIS RESULTS
+  // UI STATE 2: ANALYSIS RESULTS
   Widget _buildResultsScreen() {
 
     // --- THE NEW 3-STATE LOGIC CHECK ---
@@ -371,7 +371,7 @@ class _MainScreenState extends State<MainScreen> {
       statusIcon = Icons.wifi_off_rounded;
       statusText = _errorMessage!;
     } else if (hasFake) {
-      // STATE 1: Found known fake features
+      // STATE 1: Found known counterfeit features
       boxColor = Colors.red.shade50;
       iconColor = Colors.red;
       statusIcon = Icons.warning_amber_rounded;
@@ -460,10 +460,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// --- THE CUSTOM PAINTER CLASS ---
+// --- CUSTOM PAINTER CLASS ---
 class BoundingBoxPainter extends CustomPainter {
   final List<dynamic> detections;
-  final double screenWidth; // Added screenWidth variable
+  final double screenWidth;
 
   // Require screenWidth in the constructor
   BoundingBoxPainter(this.detections, this.screenWidth);
@@ -473,8 +473,8 @@ class BoundingBoxPainter extends CustomPainter {
     // 1. Calculate the exact scale factor Flutter is applying to fit the image on screen
     double scaleFactor = screenWidth / size.width;
 
-    // 2. INVERSE SCALING: Divide your desired visual size by the scale factor.
-    // This guarantees the text is exactly 14 logical pixels on your physical phone screen.
+    // 2. INVERSE SCALING: Divide desired visual size by the scale factor.
+    // This guarantees the text is exactly 14 logical pixels on the physical phone screen.
     final double dynamicStrokeWidth = 3.0 / scaleFactor;
     final double dynamicFontSize = 14.0 / scaleFactor;
     final double textPadding = 4.0 / scaleFactor;
@@ -509,13 +509,10 @@ class BoundingBoxPainter extends CustomPainter {
         text: textSpan,
         textDirection: TextDirection.ltr,
       );
-
       textPainter.layout();
-
       textPainter.paint(canvas, Offset(xMin, yMin - textPainter.height - textPadding));
     }
   }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;

@@ -1,5 +1,0 @@
-1. Navigate to this folder.
-2. Make virtual environment "python -m venv venv"
-3. Activate venv "venv\Scripts\activate"
-4. Install YOLOv8 library "pip install Flask ultralytics"
-5. Start server "python app.py"
