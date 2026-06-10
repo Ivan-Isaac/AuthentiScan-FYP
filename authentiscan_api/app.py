@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # Load the MVP model
-model = YOLO("ver4_1-6-2026.pt") 
+model = YOLO("ver5_10-6-2026.pt") 
 
 @app.route('/predict', methods=['POST'])
 def predict():
