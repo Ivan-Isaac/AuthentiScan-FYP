@@ -214,7 +214,6 @@ __marimo__/
 datasets/
 images/
 labels/
-*.pt
 *.onnx
 *.weights
 # Ignore Ultralytics training output folders (these get huge quickly)
